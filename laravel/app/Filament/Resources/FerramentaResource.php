@@ -23,7 +23,8 @@ class FerramentaResource extends Resource
     {
         return $form
             ->schema([
-                //
+               Forms\Components\TextInput::make('nome')->required(),
+                Forms\Components\Toggle::make('ativo')->default(true),
             ]);
     }
 
@@ -31,7 +32,34 @@ class FerramentaResource extends Resource
     {
         return $table
             ->columns([
-                //
+                 Tables\Columns\TextColumn::make('nome')
+                ->label('Nome')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\IconColumn::make('ativo')
+                ->label('Ativo')
+                ->boolean()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('created_at')
+                ->label('Criado em')
+                ->dateTime('d/m/Y H:i')
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
+                
+            Tables\Columns\TextColumn::make('updated_at')
+                ->label('Atualizado em')
+                ->dateTime('d/m/Y H:i')
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
+        ])
+        ->filters([
+            Tables\Filters\TernaryFilter::make('ativo')
+                ->label('Status')
+                ->placeholder('Todos')
+                ->trueLabel('Ativos')
+                ->falseLabel('Inativos'),
             ])
             ->filters([
                 //

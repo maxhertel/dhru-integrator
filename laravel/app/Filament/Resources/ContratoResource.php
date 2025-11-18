@@ -17,6 +17,8 @@ class ContratoResource extends Resource
 {
     protected static ?string $model = Contrato::class;
 
+    protected static ?string $navigationLabel = 'Alugueis';
+
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Form $form): Form

@@ -10,24 +10,28 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class ContaResource extends Resource
 {
     protected static ?string $model = Conta::class;
+
+    
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                Forms\Components\TextInput::make('ferramenta'),
-                Forms\Components\TextInput::make('usuario')
-                    ->required(),
-                Forms\Components\TextInput::make('senha'),
-                Forms\Components\TextInput::make('status')
+            ->schema([  
+                     Forms\Components\TextInput::make('nome')->required(),
+                Forms\Components\Toggle::make('ativo')->default(true),
+                Forms\Components\Select::make('status')
+                    ->options([
+                        'disponivel' => 'Disponível',
+                        'alugado' => 'Alugado',
+                        'desativado' => 'Desativado',
+                    ])
+                    ->default('disponivel')
                     ->required(),
                 Forms\Components\DateTimePicker::make('ultima_atualizacao'),
             ]);
@@ -37,6 +41,15 @@ class ContaResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\BadgeColumn::make('status')
+                ->colors([
+                    'success' => 'disponivel',
+                    'danger'  => 'alugado',
+                    'secondary' => 'desativado',
+                ]),
+            Tables\Columns\TextColumn::make('ferramenta.nome')->label('Ferramenta'),
+            Tables\Columns\TextColumn::make('usuario'),
+            Tables\Columns\TextColumn::make('ultima_atualizacao')->dateTime(),
                 Tables\Columns\TextColumn::make('ferramenta')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('usuario')
