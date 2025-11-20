@@ -12,7 +12,7 @@ class CreateContasTable extends Migration
             $table->id();
             $table->string('ferramenta')->nullable(); // nome da ferramenta/serviço
             $table->string('usuario')->unique();
-            $table->string('senha')->nullable(); // armazenar ENCRIPTADO (ver abaixo)
+            $table->string('apikey')->nullable(); 
             $table->enum('status', ['disponivel','alugado','desativado'])->default('disponivel');
             $table->timestamp('ultima_atualizacao')->nullable();
             $table->timestamps();

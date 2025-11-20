@@ -1,196 +1,171 @@
 <?php
-/**
- * DHRU Fusion api standards V6.1
- */
 
-session_name("DHRUFUSION");
-session_set_cookie_params(0, "/", null, false, true);
-session_start();
-error_reporting(0);
-$apiversion = '6.1';
-foreach ($_POST as $k => $v) {
-    if ($k == 'parameters') {
-        ${$k} = $v; // Asignar el valor sin filtrar
-    } else {
-        ${$k} = filter_var($v, FILTER_SANITIZE_STRING);
-    }
-   
-}
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
 
-$apiresults = array();
-if ($parameters){
-    $parameters = json_decode(json_encode(simplexml_load_string($parameters)),TRUE);
-}
+Route::get('/', function (Request $request) {
+    return $request->user();
+});
 
-if ($User = validateAuth($username, $apiaccesskey)) {
-    $con = mysqli_connect('localhost', 'u126464773_dhru', 'Shetouane123', 'u126464773_dhru');
-    $check_serv = mysqli_query($con, "SELECT * FROM `apiservices` WHERE `status`= '1'");
-    switch ($action) {
-        
-        case "accountinfo":
-            $AccountInfo['credit'] = $User['credit'];
-            $AccountInfo['mail'] = $User['email'];
-            $AccountInfo['currency'] = 'USD'; /* Currency code */
-            $apiresults['SUCCESS'][] = array('message' => 'Your Account Info', 'AccountInfo' => $AccountInfo);
-            break;
+// Mirror endpoint similar to the external curl: POST /api/index.php
+Route::post('/index.php', function (Request $request) {
+    // Mirror procedural behavior from the provided script
+    @session_name('DHRUFUSION');
+    @session_set_cookie_params(0, '/', null, false, true);
+    @session_start();
+    @error_reporting(0);
 
-        case "imeiservicelist":
-            $ServiceList = NULL;
-            $Group = 'Bypass Tool';
-            $ServiceList[$Group]['GROUPNAME'] = $Group;
-            $ServiceList[$Group]['GROUPTYPE'] = 'IMEI'; // IMEI OR SERVER OR REMOTE
+    $apiversion = '6.1';
 
-            while($serv = mysqli_fetch_assoc($check_serv))
-            {
-                {
-                    $SERVICEID = $serv['id'];
-                    $ServiceList[$Group]['GROUPTYPE'] = 'IMEI';  //IMEI OR SERVER
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['SERVICEID'] = $SERVICEID;
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['SERVICETYPE'] = 'IMEI'; // IMEI OR SERVER OR REMOTE
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['SERVICENAME'] = $serv['services'];
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['CREDIT'] = $serv['price'];
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['INFO'] = utf8_encode($serv['info']);
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['TIME'] = 'Instant';
-                    
-                    /* Other Fields if required only */
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.Network'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.Mobile'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.Provider'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.PIN'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.KBH'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.MEP'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.PRD'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.Type'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.Reference'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.Locks'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.SN'] = 'None';
-                    $ServiceList[$Group]['SERVICES'][$SERVICEID]['Requires.SecRO'] = 'None';
-                }
-            }
-            $apiresults['SUCCESS'][] = array('MESSAGE' => 'IMEI Service List', 'LIST' => $ServiceList);
-            break;
+    // Collect and sanitize POST inputs, but keep 'parameters' raw
+    $rawPost = $request->post();
+    $username = null;
+    $apiaccesskey = null;
+    $action = null;
+    $requestformat = $request->input('requestformat', 'JSON');
+    $parameters = null;
 
-        case "placeimeiorder":
-            $ServiceId = $parameters["ID"];
-            $imei = $parameters["IMEI"];
-            $CustomField = json_decode(base64_decode($parameters['customfield']), true);
-            
-            $check_ordr = mysqli_query($con, "SELECT * FROM `apiservices` WHERE `id`= '$ServiceId'");
-            $result = mysqli_fetch_array($check_ordr);
-            $user_data = $User['username'];
-            $api = $result['link'];
-            $name = $result['services'];
-            $price = $result['price'];
-            if ($User['credit'] > $result['price']) {
-                $check_his = mysqli_query($con, "SELECT * FROM `apiorders` WHERE `imei`= '$imei'");
-			    if(mysqli_num_rows($check_his) < 1)
-			    {
-			        $url = $api."".$imei;
-					$ch = curl_init(); 
-					curl_setopt($ch, CURLOPT_URL, $url);
-					curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
-					curl_setopt($ch, CURLOPT_TIMEOUT,10);
-					$output = curl_exec($ch);
-					curl_close($ch);
-					if(preg_match("/successfully/i", $output) || preg_match("/already/i", $output))
-					{
-						$output = "Order Successfully";
-					}
-					$cut = mysqli_query($con, "UPDATE `apiusers` SET `credit`= (`credit` - '$price') WHERE `username` = '$user_data'");
-			    }
-			    else
-			    {
-			        $check_tool = mysqli_fetch_array($check_his);
-				    $history = $check_tool['services'];
-				    if($history == $name)
-				    {
-				        $output = "Reject";
-				    }
-				    else
-				    {
-				        $url = $api."".$imei;
-						$ch = curl_init(); 
-						curl_setopt($ch, CURLOPT_URL, $url);
-						curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
-						curl_setopt($ch, CURLOPT_TIMEOUT,10);
-						$output = curl_exec($ch);
-						curl_close($ch);
-						if(preg_match("/successfully/i", $output) || preg_match("/already/i", $output))
-						{
-							$output = "Order Successfully";
-						}
-						$cut = mysqli_query($con, "UPDATE `apiusers` SET `credit`= (`credit` - '$price') WHERE `username` = '$user_data'");
-				    }
-				    
-			    }
-			    $add = mysqli_query($con, "INSERT INTO `apiorders`(`services`, `imei`, `reply`, `price`, `username`) VALUES ('$name', '$imei','$output','$price','$user_data')");
-			    $order_reff_id = rand(1111, 9999);
-				$apiresults['SUCCESS'][] = array('MESSAGE' => 'Order received', 'REFERENCEID' => $order_reff_id);
-            }
-            else {
-			    $apiresults['ERROR'][] = array('MESSAGE' => 'Not enough credits');
-			}
-            break;
+    foreach ($rawPost as $k => $v) {
+        if ($k === 'parameters') {
+            $parameters = $v; // assign raw
+            continue;
+        }
 
-        case "getimeiorder":
-            $OrderID = (int)$parameters['ID'];
-            $check = mysqli_query($con, "SELECT * FROM `apiorders` ORDER BY `id` DESC LIMIT 1");
-            $get_code = mysqli_fetch_array($check);
-            $code = $get_code['reply'];
-            if(preg_match("/error/i", $code))
-            {
-                $apiresults['SUCCESS'][] = array(
-                'STATUS' => 3, /* 0 - New , 1 - InProcess, 3 - Reject(Refund), 4- Available(Success)  */
-                'CODE' => "API Connection Error");
-            }
-			else if(preg_match("/reject/i", $code))
-			{
-				$apiresults['SUCCESS'][] = array(
-                'STATUS' => 3, /* 0 - New , 1 - InProcess, 3 - Reject(Refund), 4- Available(Success)  */
-                'CODE' => "Duplicate Orders");
-			}
-            else
-            {
-                $apiresults['SUCCESS'][] = array(
-                'STATUS' => 4, /* 0 - New , 1 - InProcess, 3 - Reject(Refund), 4- Available(Success)  */
-                'CODE' => $code);
-            }
-            break; 
-            
-        default:
-            $apiresults['ERROR'][] = array('MESSAGE' => 'Invalid Action');
-    }
-} else {
-    $apiresults['ERROR'][] = array('MESSAGE' => 'Authentication Failed');
-}
-
-function validateAuth($username, $apiaccesskey)
-{
-    $var = array('status'=>'false');
-    $con = mysqli_connect('localhost', 'u126464773_dhru', 'Shetouane123', 'u126464773_dhru');
-    $check_user = mysqli_query($con, "SELECT * FROM `apiusers` WHERE `username` = '$username'");
-    if(mysqli_num_rows($check_user) > 0)
-    {
-        $data = mysqli_fetch_array($check_user);
-        $email = $data['email'];
-        $balance = $data['credit'];
-        if($data['apiaccess'] == $apiaccesskey)
-        {
-            $var = array('status'=>'true','username'=>$username,'email'=>$email,'credit'=>$balance);
+        // sanitize like FILTER_SANITIZE_STRING
+        $clean = is_array($v) ? $v : filter_var($v, FILTER_SANITIZE_STRING);
+        switch ($k) {
+            case 'username':
+                $username = $clean;
+                break;
+            case 'apiaccesskey':
+                $apiaccesskey = $clean;
+                break;
+            case 'action':
+                $action = $clean;
+                break;
+            case 'requestformat':
+                $requestformat = $clean;
+                break;
+            default:
+                break;
         }
     }
-    return $var;
-}
 
-if (count($apiresults)) {
-    header("X-Powered-By: DHRU-FUSION");
-    header("dhru-fusion-api-version: $apiversion");
-    header_remove('pragma');
-    header_remove('server');
-    header_remove('transfer-encoding');
-    header_remove('cache-control');
-    header_remove('expires');
-    header('Content-Type: application/json; charset=utf-8');
-    $apiresults['apiversion'] = $apiversion;
-    exit(json_encode($apiresults));
-}
+    $format = strtoupper($requestformat ?: 'JSON');
+
+    // If parameters provided as XML, convert to array similar to original code
+    if ($parameters) {
+        try {
+            $xml = @simplexml_load_string($parameters);
+            if ($xml !== false) {
+                $parameters = json_decode(json_encode($xml), true);
+            }
+        } catch (\Exception $e) {
+            $parameters = null;
+        }
+    }
+
+    // Helper: validate auth against DB
+    $validateAuth = function ($u, $k) {
+        if (empty($u) || empty($k)) {
+            return false;
+        }
+        try {
+            $user = DB::table('users')
+                ->where('username', $u)
+                ->where('apiaccesskey', $k)
+                ->first();
+        } catch (\Exception $e) {
+            return false;
+        }
+
+        if (!$user) {
+            return false;
+        }
+
+        return [
+            'credit' => property_exists($user, 'credit') ? $user->credit : 0,
+            'email' => property_exists($user, 'email') ? $user->email : '',
+        ];
+    };
+
+    // Response container
+    $apiresults = [];
+
+    if ($User = $validateAuth($username, $apiaccesskey)) {
+        try {
+            $enabledServices = DB::table('apiservices')->where('status', '1')->get();
+        } catch (\Exception $e) {
+            $enabledServices = collect();
+        }
+
+        switch (strtolower($action)) {
+            case 'accountinfo':
+                $AccountInfo = [];
+                $AccountInfo['credit'] = $User['credit'];
+                $AccountInfo['mail'] = $User['email'];
+                $AccountInfo['currency'] = 'USD';
+                $apiresults['SUCCESS'][] = ['message' => 'Your Account Info', 'AccountInfo' => $AccountInfo];
+                break;
+
+            default:
+                $apiresults['ERROR'][] = ['message' => 'Unknown action: ' . ($action ?: '')];
+                break;
+        }
+    } else {
+        $apiresults['ERROR'][] = ['message' => 'Authentication failed'];
+    }
+
+    // ----------------- HEADERS QUE VOCÊ PEDIU -----------------
+    if (count($apiresults)) {
+        $responseHeaders = [
+            'X-Powered-By' => 'DHRU-FUSION',
+            'dhru-fusion-api-version' => $apiversion,
+        ];
+    } else {
+        $responseHeaders = [];
+    }
+
+    // ----------------- XML -----------------
+    if ($format === 'XML') {
+        $xmlRoot = new \SimpleXMLElement('<?xml version="1.0"?><response></response>');
+
+        $array_to_xml = function ($data, \SimpleXMLElement &$xml_data) use (&$array_to_xml) {
+            foreach ($data as $key => $value) {
+                if (is_numeric($key)) {
+                    $key = 'item' . $key;
+                }
+
+                if (is_array($value)) {
+                    $subnode = $xml_data->addChild($key);
+                    $array_to_xml($value, $subnode);
+                } else {
+                    $xml_data->addChild($key, htmlspecialchars((string)$value));
+                }
+            }
+        };
+
+        $array_to_xml($apiresults, $xmlRoot);
+
+        $response = response($xmlRoot->asXML(), 200, $responseHeaders)
+            ->header('Content-Type', 'application/xml');
+    }
+    // ----------------- JSON -----------------
+    else {
+        $response = response()->json(
+            ['apiresults' => $apiresults],
+            200,
+            $responseHeaders
+        )->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
+    // ----------------- REMOVER HEADERS -----------------
+    $response->headers->remove('pragma');
+    $response->headers->remove('server');
+    $response->headers->remove('transfer-encoding');
+    $response->headers->remove('cache-control');
+    $response->headers->remove('expires');
+
+    return $response;
+});
